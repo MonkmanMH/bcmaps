@@ -1,0 +1,173 @@
+---
+title: "Choropleth maps with bcmaps"
+date: "2023-08-07"
+output:
+  rmarkdown::html_vignette:
+    keep_md: true
+    fig_width: 5
+    fig_height: 5
+vignette: >
+  %\VignetteIndexEntry{Choropleth maps with bcmaps}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+
+A common map-based data visualization is a choropleth map. These are the maps that use colour or shading to represent the value of a region. This vignette will run through a simple example of using the {bcmaps} boundary information to plot life expectancy in the Health Service Delivery Areas (HSDAs) of British Columbia. ^[Statistics Canada. [Table 13-10-0389-01  Life expectancy, at birth and at age 65, by sex, three-year average, Canada, provinces, territories, health regions and peer groups](https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310038901)]
+
+For this example, we use data published by Statistics Canada .
+
+First, load the packages we will need:
+
+- `sf` for working with spatial layers in the *simple features* format
+- `bcmaps` for accessing spatial files of B.C.
+- `ggplot2` for plotting our map
+- `dplyr` for data manipulation (in this case, joining our dataframes)
+- `tibble` for creating a tibble-type dataframe
+
+```{r}
+library(sf)
+library(bcmaps)
+
+# tidyverse packages
+library(ggplot2)
+library(dplyr)
+library(tibble)
+```
+
+```{r}
+hsda_bound <- health_hsda()
+
+glimpse(hsda_bound)
+
+#Rows: 16
+#Columns: 14
+#$ id                          <chr> "WHSE_ADMIN_BOUNDARIES.BCHA_HEALTH_SERV_DEL…
+#$ HLTH_HSDA_SYSID             <int> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, …
+#$ HLTH_SERVICE_DLVR_AREA_CODE <chr> "11", "12", "13", "14", "21", "22", "23", "…
+#$ HLTH_SERVICE_DLVR_AREA_NAME <chr> "East Kootenay", "Kootenay Boundary", "Okan…
+#$ HLTH_SERVICE_DLVR_AREA_ID   <chr> "11 EK", "12 KB", "13 OK", "14 TC", "21 FE"…
+#$ HLTH_AUTHORITY_CODE         <chr> "1", "1", "1", "1", "2", "2", "2", "3", "3"…
+#$ HLTH_AUTHORITY_NAME         <chr> "Interior", "Interior", "Interior", "Interi…
+#$ HLTH_AUTHORITY_ID           <chr> "1 IHA", "1 IHA", "1 IHA", "1 IHA", "2 FHA"…
+#$ FEATURE_CODE                <chr> "FH10000200", "FH10000200", "FH10000200", "…
+#$ FEATURE_AREA_SQM            <dbl> 44984695870, 28857668877, 21414902417, 1201…
+#$ FEATURE_LENGTH_M            <dbl> 1721940.57, 1097002.42, 1080662.96, 2523182…
+#$ OBJECTID                    <int> 321, 322, 323, 324, 325, 326, 327, 328, 329…
+#$ SE_ANNO_CAD_DATA            <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,…
+#$ geometry                    <MULTIPOLYGON [m]> MULTIPOLYGON (((1542406 861...…
+
+```
+
+Plotting this `sf` object gives us a map of the HSDAs, all shaded white. 
+
+```{r}
+
+#bc <- bc_bound()
+plot(st_geometry(hsda_bound))
+
+```
+
+
+The goal is to create a map that shades the various HSDAs by the life expectancy of each. Our next step is to create a dataframe with that data. 
+
+In the code below, we create a dataframe with the HSDA code numbers and names, and the 2015–2017 life expectancy values (in real life these would probably be in a csv or Excel file that we would import, or we could use the {cansim} package to access the data directly from Statistics Canada).
+
+
+```{r}
+# create dataframe (tibble)
+hsda_lifeexp <- tribble(
+  ~HLTH_AUTHORITY_CODE, ~HLTH_SERVICE_DLVR_AREA_NAME, ~lifeexp_birth_2017,
+  "11", "East Kootenay", 80.5,
+  "12", "Kootenay Boundary", 80.4,
+  "13", "Okanagan", 81.2,
+  "14", "Thompson Cariboo Shuswap", 79.9,
+  "21", "Fraser East", 81.2,
+  "22", "Fraser North", 83.6,
+  "23", "Fraser South", 82.8,
+  "31", "Richmond", 86.8,
+  "32", "Vancouver", 84.1,
+  "33", "North Shore/Coast Garibaldi", 83.9,
+  "41", "South Vancouver Island", 83.3,
+  "42", "Central Vancouver Island", 81.3,
+  "43", "North Vancouver Island", 81.0,
+  "51", "Northwest", 79.1,
+  "52", "Northern Interior", 78.8,
+  "53", "Northeast", 78.0
+)
+
+```
+
+Now we have two dataframes: one with the HSDA shapes (`hsda_bound`), and the other with the HSDA life expectancy (`hsda_lifeexp`).
+
+We need to join these two together, making a single object. An important thing to note is that we need to join the data to the `sf` object
+
+
+
+```{r}
+
+hsda_bound_lifeexp <- hsda_bound |> 
+  left_join(hsda_lifeexp, by = "HLTH_SERVICE_DLVR_AREA_NAME")
+
+```
+
+Our object now contains all of the original `hsda_bound` variables, and two additional variables from 
+
+```r
+
+glimpse(hsda_bound_lifeexp)
+
+#Rows: 16
+#Columns: 16
+#$ id                          <chr> "WHSE_ADMIN_BOUNDARIES.BCHA_HEALTH_SERV_DEL…
+#$ HLTH_HSDA_SYSID             <int> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, …
+#$ HLTH_SERVICE_DLVR_AREA_CODE <chr> "11", "12", "13", "14", "21", "22", "23", "…
+#$ HLTH_SERVICE_DLVR_AREA_NAME <chr> "East Kootenay", "Kootenay Boundary", "Okan…
+#$ HLTH_SERVICE_DLVR_AREA_ID   <chr> "11 EK", "12 KB", "13 OK", "14 TC", "21 FE"…
+#$ HLTH_AUTHORITY_CODE.x       <chr> "1", "1", "1", "1", "2", "2", "2", "3", "3"…
+#$ HLTH_AUTHORITY_NAME         <chr> "Interior", "Interior", "Interior", "Interi…
+#$ HLTH_AUTHORITY_ID           <chr> "1 IHA", "1 IHA", "1 IHA", "1 IHA", "2 FHA"…
+#$ FEATURE_CODE                <chr> "FH10000200", "FH10000200", "FH10000200", "…
+#$ FEATURE_AREA_SQM            <dbl> 44984695870, 28857668877, 21414902417, 1201…
+#$ FEATURE_LENGTH_M            <dbl> 1721940.57, 1097002.42, 1080662.96, 2523182…
+#$ OBJECTID                    <int> 321, 322, 323, 324, 325, 326, 327, 328, 329…
+#$ SE_ANNO_CAD_DATA            <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,…
+#$ geometry                    <MULTIPOLYGON [m]> MULTIPOLYGON (((1542406 861...…
+#$ HLTH_AUTHORITY_CODE.y       <chr> "11", "12", "13", "14", "21", "22", "23", "…
+#$ lifeexp_birth_2017          <dbl> 80.5, 80.4, 81.2, 79.9, 81.2, 83.6, 82.8, 8…
+
+```
+
+
+
+To plot the map with the with default colours, we can use `ggplot()`, and `geom_sf()`:
+
+```{r}
+
+ggplot(hsda_bound_lifeexp) +
+  geom_sf(aes(fill = lifeexp_birth_2017))
+
+```
+
+
+Add formatting, including 
+
+* custom colour palette
+
+* projection
+
+All of the maps in the `bcmaps` package are in BC Albers projection ([EPSG:3005](https://epsg.io/3005)), which is the B.C. government standard. It is an 'equal area' projection, meaning that the size of areas is not distorted, and thus is suitable for analyses on large areas.
+
+
+
+Diverging palette
+
+* BC life expectancy: 82.4
+
+
+
+
+
+
+
