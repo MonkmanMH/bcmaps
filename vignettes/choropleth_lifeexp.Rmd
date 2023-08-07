@@ -14,8 +14,7 @@ vignette: >
 
 
 
-A common map-based data visualization is a choropleth map. These are the maps that use colour or shading to represent the value of a region. This vignette will run through a simple example of using the {bcmaps} boundary information to plot life expectancy in the Health Service Delivery Areas (HSDAs) of British Columbia. ^[Statistics Canada. [Table 13-10-0389-01  Life expectancy, at birth and at age 65, by sex, three-year average, Canada, provinces, territories, health regions and peer groups](https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310038901)]
-
+A common map-based data visualization is a choropleth map. These are maps that use colour or shading to represent the value of a statistic in a region. This vignette will run through an example of using the {bcmaps} boundary information to plot life expectancy in the Health Service Delivery Areas (HSDAs) of British Columbia.
 For this example, we use data published by Statistics Canada .
 
 First, load the packages we will need:
@@ -70,9 +69,11 @@ plot(st_geometry(hsda_bound))
 ```
 
 
-The goal is to create a map that shades the various HSDAs by the life expectancy of each. Our next step is to create a dataframe with that data. 
+Our next step is to create a dataframe with the life expectancy values for each of the HSDAs. 
 
-In the code below, we create a dataframe with the HSDA code numbers and names, and the 2015–2017 life expectancy values (in real life these would probably be in a csv or Excel file that we would import, or we could use the {cansim} package to access the data directly from Statistics Canada).
+In the code below, we create a tibble dataframe with the HSDA code numbers and names, and the 2015–2017 life expectancy values published by Statistics Canada.  ^[Statistics Canada. [Table 13-10-0389-01  Life expectancy, at birth and at age 65, by sex, three-year average, Canada, provinces, territories, health regions and peer groups](https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310038901)]
+
+In real life this data would probably be in a CSV or Excel file that we would import, or we could use the [{cansim}]( https://CRAN.R-project.org/package=cansim) package to access the data directly from Statistics Canada.
 
 
 ```{r}
@@ -141,7 +142,7 @@ glimpse(hsda_bound_lifeexp)
 
 
 
-To plot the map with the with default colours, we can use `ggplot()`, and `geom_sf()`:
+To plot the map with the with default colours, we can use `ggplot()`, and `geom_sf()` from the {ggplot2} package:
 
 ```{r}
 
@@ -157,9 +158,36 @@ Add formatting, including
 
 * projection
 
-All of the maps in the `bcmaps` package are in BC Albers projection ([EPSG:3005](https://epsg.io/3005)), which is the B.C. government standard. It is an 'equal area' projection, meaning that the size of areas is not distorted, and thus is suitable for analyses on large areas.
+All of the maps in the `bcmaps` package are in BC Albers projection ([EPSG:3005](https://epsg.io/3005)), which is the B.C. government standard. It is an 'equal area' projection, meaning that the size of areas is not distorted, and thus is suitable for analyses on large areas. We can specify that projection for our map using `coord_sf(datum = )` as part of the `ggplot()` function.
+
+In this example, the colour scheme is also changed so that it goes from light to dark, using the blue of the British Columbia flag as the darkest value. This will be used to represent the region with the highest life expectancy.
 
 
+
+```{r}
+ggplot(hsda_bound_lifeexp) +
+  geom_sf(aes(fill = lifeexp_birth_2017)) +
+  coord_sf(
+  # projection
+    datum = sf::st_crs(3005)
+    ) +  
+  scale_fill_gradient(
+    low = "#dfebff",
+    high = "#0047bb",
+    na.value = "#ffffff",
+    name = "Life expectancy at birth"
+    ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = c(0.05, 0.45)
+  ) 
+
+#ggsave("bc_food_cost_blue.jpg")
+  
+```
 
 Diverging palette
 
